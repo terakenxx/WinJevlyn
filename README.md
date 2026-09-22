@@ -38,6 +38,24 @@ dotnet run --project src/JevInferenceApp/JevInferenceApp.csproj
 `LLamaSharp.Backend.Cpu` パッケージが AVX/AVX2/AVX512 各バックエンドのネイティブ DLL を自動的に出力先へコピーする
 ため、`dotnet run` の時点では単一ファイル化しなくてもそのまま動作します。
 
+## Visual Studio で開く（ソース一式を配布する場合）
+
+このリポジトリは標準的な SDK スタイルのプロジェクト（`PackageReference` 方式）なので、Visual Studio が
+`LLamaSharp` / `LLamaSharp.Backend.Cpu` を **ビルド時に NuGet から自動ダウンロード**します。事前にライブラリの
+DLL を手動で集めて同梱する必要はありません（モデルの `.gguf` ファイルだけは対象外なので別途用意してください）。
+
+1. **前提条件**: Visual Studio 2022 (17.8 以降)。インストール時に「.NET デスクトップ開発」ワークロードに
+   チェックを入れてください（WPF のビルドに必要）。.NET 8 SDK が無ければ Visual Studio Installer から
+   追加できます。
+2. リポジトリ一式（`.git` を除く場合は `bin/` `obj/` `publish/` `models/` を除いたソースツリー）を展開し、
+   ルートの `JevInferenceApp.sln` をダブルクリックして開く。
+3. 「ビルド」→「ソリューションのビルド」（`Ctrl+Shift+B`）を実行すると、初回ビルド時に NuGet パッケージが
+   自動復元されます（初回はネットワークからのダウンロードで数分かかります。今回の検証では約187MBでした）。
+4. `F5`（デバッグ実行）または `Ctrl+F5`（デバッグなし実行）でそのまま起動できます。
+
+リポジトリ直下の `NuGet.config` で参照先を `nuget.org` に固定しているため、相手先マシンの NuGet 設定に
+関わらず同じ場所から取得されます。
+
 ## 単一実行ファイルとして発行
 
 プロジェクトルートの `publish.bat` を実行してください。

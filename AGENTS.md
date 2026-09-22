@@ -118,10 +118,25 @@ Gemma3-4B-itのような画像入力対応モデルを試すために作成し�
 mmprojは本体GGUFとは別ファイルとしてダウンロードが必要（例: `unsloth/gemma-3-4b-it-GGUF`の
 `mmproj-BF16.gguf`）。
 
+## 配布方法（2種類）
+
+用途に応じて2通りの配布方法を用意している。どちらも [README.md](README.md) に手順あり。
+
+1. **単一exe配布**（`publish.bat`）: 自己完結・単一ファイルの`JevInferenceApp.exe`をルート直下の
+   `publish/`に生成する。相手先に.NET 8のインストールは不要。`-p:DebugType=None`で`.pdb`は生成しない
+   （実行時に不要なため）。署名なしなので初回起動時にSmartScreen警告が出る点に注意。
+2. **ソース一式配布（Visual Studioでビルド）**: `NuGet.config`（リポジトリルート）でパッケージ取得元を
+   `nuget.org`に固定しているため、Visual Studio 2022（.NETデスクトップ開発ワークロード）で
+   `JevInferenceApp.sln`を開いてビルドするだけで、`LLamaSharp`/`LLamaSharp.Backend.Cpu`が自動的に
+   NuGetから復元される。手動でDLLを集めて同梱する必要はない。
+   - 検証済み: `NUGET_PACKAGES`環境変数で完全に空のパッケージキャッシュを指定した状態
+     （＝初めてこのマシンを使う人を模した状態）から`dotnet restore`→`dotnet build`が成功することを確認
+     （nuget.orgから約187MBを新規ダウンロード）。
+
 ## 現在の状態・次にやること
 
-- [JevInferenceApp](src/JevInferenceApp) 本体: 実装・ビルド・実推論検証済み。単一exe発行手順も
-  [README.md](README.md) に記載済み。
+- [JevInferenceApp](src/JevInferenceApp) 本体: 実装・ビルド・実推論検証済み。単一exe発行・ソース配布
+  （VS向けNuGet自動復元）の両方を検証済み。
 - [JevMultimodalPlayground](src/JevMultimodalPlayground): ビルドのみ確認済み、実モデルでの動作検証は未実施。
 - Sarashina2.2-3B-instruct（Q4_K_S、ユーザーがLM Studioでダウンロード中）での動作検証は未実施。
 - Gemma3-4B-it + mmprojでのマルチモーダル動作検証は未実施。
