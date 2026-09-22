@@ -4,22 +4,28 @@ using LLama;
 using LLama.Common;
 using LLama.Native;
 
-// Single-shot multimodal smoke test: load a vision-capable GGUF model (e.g. Gemma3-4B-it)
-// plus its mmproj file, show it one image, and print its answer to one question.
+// Single-shot multimodal benchmark: load a vision-capable GGUF model (e.g. Qwen3-VL-8B-Instruct)
+// plus its mmproj file, show it one image, ask one question, and print a timing breakdown
+// (model load / mmproj load / prompt+image processing / generation) in milliseconds.
 //
 // Usage:
-//   JevMultimodalPlayground <textModel.gguf> <mmproj.gguf> <image.png> ["question text"]
+//   JevMultimodalPlayground <textModel.gguf> <mmproj.gguf> <image.png> ["question text"] [--cpu|--gpu]
+//
+// --gpu (default): try CUDA, auto-fallback to CPU if no compatible GPU/driver is found.
+// --cpu: force CPU-only (no GPU layers), for an apples-to-apples baseline measurement.
 
 if (args.Length < 3)
 {
-    Console.WriteLine("Usage: JevMultimodalPlayground <textModel.gguf> <mmproj.gguf> <image.png> [\"question text\"]");
+    Console.WriteLine("Usage: JevMultimodalPlayground <textModel.gguf> <mmproj.gguf> <image.png> [\"question text\"] [--cpu|--gpu]");
     return 1;
 }
 
 var modelPath = args[0];
 var mmProjPath = args[1];
 var imagePath = args[2];
-var question = args.Length > 3 ? args[3] : "この画像には何が写っていますか。日本語で簡潔に説明してください。";
+var flags = args.Skip(3).ToArray();
+var useCpu = flags.Contains("--cpu");
+var question = flags.FirstOrDefault(a => !a.StartsWith("--")) ?? "この画像には何が写っていますか。日本語で簡潔に説明してください。";
 
 foreach (var (label, path) in new[] { ("モデル", modelPath), ("mmproj", mmProjPath), ("画像", imagePath) })
 {
@@ -30,23 +36,37 @@ foreach (var (label, path) in new[] { ("モデル", modelPath), ("mmproj", mmPro
     }
 }
 
+// Must be configured before any native library / model load happens.
+if (useCpu)
+{
+    NativeLibraryConfig.All.WithCuda(false);
+}
+else
+{
+    NativeLibraryConfig.All.WithCuda(true).WithAutoFallback(true);
+}
+
+Console.WriteLine($"Mode: {(useCpu ? "CPU (forced)" : "GPU (CUDA, auto-fallback to CPU)")}");
+
 var modelParams = new ModelParams(modelPath)
 {
     ContextSize = 4096,
-    GpuLayerCount = 0, // CPU only
+    GpuLayerCount = useCpu ? 0 : 99, // 99 = offload as many layers as fit; ignored/no-op on a CPU-only load
     Threads = 8,
     BatchThreads = 8,
 };
 
-Console.WriteLine($"Loading text model: {modelPath}");
+var swLoadModel = Stopwatch.StartNew();
 using var model = await LLamaWeights.LoadFromFileAsync(modelParams);
 using var context = model.CreateContext(modelParams);
+swLoadModel.Stop();
 
 var mtmdParams = MtmdContextParams.Default();
-mtmdParams.UseGpu = false;
+mtmdParams.UseGpu = !useCpu;
 
-Console.WriteLine($"Loading mmproj: {mmProjPath}");
+var swLoadMmproj = Stopwatch.StartNew();
 using var clipModel = await MtmdWeights.LoadFromFileAsync(mmProjPath, model, mtmdParams);
+swLoadMmproj.Stop();
 
 Console.WriteLine($"Supports vision: {clipModel.SupportsVision}, audio: {clipModel.SupportsAudio}");
 if (!clipModel.SupportsVision)
@@ -70,7 +90,7 @@ var inferenceParams = new InferenceParams
 {
     SamplingPipeline = new LLama.Sampling.DefaultSamplingPipeline { Temperature = 0.1f },
     AntiPrompts = new List<string> { "User:" },
-    MaxTokens = 512,
+    MaxTokens = 256,
 };
 
 Console.WriteLine();
@@ -79,18 +99,35 @@ Console.WriteLine($"(image: {imagePath})");
 Console.WriteLine();
 Console.Write("A: ");
 
-var sw = Stopwatch.StartNew();
+var swFirstToken = Stopwatch.StartNew();
+var swGeneration = new Stopwatch();
 var responseBuilder = new StringBuilder();
+var chunkCount = 0;
+long firstTokenMs = -1;
+
 await foreach (var text in executor.InferAsync(prompt, inferenceParams))
 {
+    if (firstTokenMs < 0)
+    {
+        firstTokenMs = swFirstToken.ElapsedMilliseconds;
+        swGeneration.Start();
+    }
+
     Console.Write(text);
     responseBuilder.Append(text);
+    chunkCount++;
 }
-sw.Stop();
+
+swGeneration.Stop();
 
 Console.WriteLine();
 Console.WriteLine();
-Console.WriteLine($"Latency: {sw.ElapsedMilliseconds} ms");
+Console.WriteLine("--- Timing breakdown (ms) ---");
+Console.WriteLine($"Text model load:        {swLoadModel.ElapsedMilliseconds,8} ms");
+Console.WriteLine($"mmproj load:             {swLoadMmproj.ElapsedMilliseconds,8} ms");
+Console.WriteLine($"Prompt+image processing: {firstTokenMs,8} ms  (time to first token; includes vision encoding)");
+Console.WriteLine($"Generation:              {swGeneration.ElapsedMilliseconds,8} ms  for ~{chunkCount} tokens ({(chunkCount / Math.Max(swGeneration.Elapsed.TotalSeconds, 0.001)):F1} tok/s)");
+Console.WriteLine($"Total (excl. model load):{firstTokenMs + swGeneration.ElapsedMilliseconds,8} ms");
 return 0;
 
 static string BuildInitialPrompt(LLamaWeights model, ChatHistory history, string userContent)
