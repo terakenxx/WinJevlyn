@@ -18,7 +18,7 @@ public partial class MainWindow : Window
         Closed += (_, _) => _engine.Dispose();
     }
 
-    private void BrowseButton_Click(object sender, RoutedEventArgs e)
+    private async void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
         {
@@ -26,8 +26,11 @@ public partial class MainWindow : Window
             Filter = "GGUFモデル (*.gguf)|*.gguf|すべてのファイル (*.*)|*.*",
         };
 
-        if (dialog.ShowDialog(this) == true)
-            ModelPathTextBox.Text = dialog.FileName;
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        ModelPathTextBox.Text = dialog.FileName;
+        await LoadModelAsync(dialog.FileName);
     }
 
     private async void LoadModelButton_Click(object sender, RoutedEventArgs e)
@@ -39,6 +42,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        await LoadModelAsync(path);
+    }
+
+    private async Task LoadModelAsync(string path)
+    {
         SetBusy(true, "モデルを読み込み中...");
         RunButton.IsEnabled = false;
 
