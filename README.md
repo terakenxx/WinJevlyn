@@ -40,16 +40,29 @@ dotnet run --project src/JevInferenceApp/JevInferenceApp.csproj
 
 ## 単一実行ファイルとして発行
 
+プロジェクトルートの `publish.bat` を実行してください。
+
+```bash
+publish.bat
+```
+
+生成物はプロジェクトルート直下の `publish\JevInferenceApp.exe` です（自己完結・単一ファイル、.NET 8
+未インストールの Windows 11 でもそのまま動作します）。このファイルと GGUF モデルファイルさえあれば、
+他の DLL を散乱させずに配布・実行できます。
+
+`.bat` を使わず直接コマンドで発行したい場合:
+
 ```bash
 dotnet publish src/JevInferenceApp/JevInferenceApp.csproj -c Release -r win-x64 \
   --self-contained true \
   -p:PublishSingleFile=true \
   -p:IncludeNativeLibrariesForSelfExtract=true \
-  -p:EnableCompressionInSingleFile=true
+  -p:EnableCompressionInSingleFile=true \
+  -o publish
 ```
 
-生成物は `src/JevInferenceApp/bin/Release/net8.0-windows/win-x64/publish/JevInferenceApp.exe` です。
-このファイルと GGUF モデルファイルさえあれば、他の DLL を散乱させずに配布・実行できます。
+**配布時の注意**: 署名なし exe のため、相手先の初回起動時に Windows SmartScreen の警告（発行元不明）が
+出ることがあります。「詳細情報」→「実行」で起動できます。
 
 ## 画面の使い方
 
