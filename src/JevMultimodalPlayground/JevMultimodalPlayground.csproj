@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Standalone experimental console app for trying multimodal (vision) models such as
+    Gemma3-4B-it via LLamaSharp's Mtmd API. Deliberately kept separate from JevInferenceApp:
+    the Mtmd pipeline (mmproj loading, media embedding, chunked decode) is a different code
+    path from the plain-text single-pass logit extraction used by the main app, so mixing
+    them would complicate the verified, working JevInferenceApp for no benefit here.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>JevMultimodalPlayground</RootNamespace>
+    <AssemblyName>JevMultimodalPlayground</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LLamaSharp" Version="0.27.0" />
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
+  </ItemGroup>
+
+</Project>

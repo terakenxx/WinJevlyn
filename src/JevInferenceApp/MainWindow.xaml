@@ -1,0 +1,136 @@
+<Window x:Class="JevInferenceApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Jev Local Inference - Qwen2.5 GGUF"
+        Width="820" Height="820" MinWidth="620" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <Style TargetType="Label">
+            <Setter Property="Padding" Value="0,4,6,4"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="14,6"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Model selection -->
+            <RowDefinition Height="Auto"/>
+            <!-- Context -->
+            <RowDefinition Height="Auto"/>
+            <!-- Choices -->
+            <RowDefinition Height="Auto"/>
+            <!-- Run row -->
+            <RowDefinition Height="*"/>
+            <!-- Results -->
+            <RowDefinition Height="Auto"/>
+            <!-- Status bar -->
+        </Grid.RowDefinitions>
+
+        <!-- Model selection area -->
+        <GroupBox Header="モデル選択" Grid.Row="0" Margin="0,0,0,10">
+            <Grid Margin="6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Label Grid.Column="0" Content="GGUFファイル:"/>
+                <TextBox x:Name="ModelPathTextBox" Grid.Column="1" Margin="0,0,8,0"/>
+                <Button x:Name="BrowseButton" Grid.Column="2" Content="参照..." Click="BrowseButton_Click" Margin="0,0,8,0"/>
+                <Button x:Name="LoadModelButton" Grid.Column="3" Content="モデル読み込み" Click="LoadModelButton_Click"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- Context input -->
+        <GroupBox Header="入力文章 (State / Context)" Grid.Row="1" Margin="0,0,0,10">
+            <TextBox x:Name="ContextTextBox" Margin="6" Height="90"
+                     AcceptsReturn="True" TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"/>
+        </GroupBox>
+
+        <!-- Choices input -->
+        <GroupBox Header="選択肢" Grid.Row="2" Margin="0,0,0,10">
+            <Grid Margin="6">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Label Grid.Row="0" Grid.Column="0" Content="選択肢 A:"/>
+                <TextBox x:Name="ChoiceATextBox" Grid.Row="0" Grid.Column="1" Margin="0,3"/>
+
+                <Label Grid.Row="1" Grid.Column="0" Content="選択肢 B:"/>
+                <TextBox x:Name="ChoiceBTextBox" Grid.Row="1" Grid.Column="1" Margin="0,3"/>
+
+                <Label Grid.Row="2" Grid.Column="0" Content="選択肢 C:"/>
+                <TextBox x:Name="ChoiceCTextBox" Grid.Row="2" Grid.Column="1" Margin="0,3"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- Run row -->
+        <Grid Grid.Row="3" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Button x:Name="RunButton" Grid.Column="0" Content="推論（判定）" Click="RunButton_Click"
+                    FontWeight="Bold" IsEnabled="False"/>
+            <Label x:Name="LatencyLabel" Grid.Column="1" Content="Latency: -- ms" Margin="14,0,0,0"/>
+        </Grid>
+
+        <!-- Results -->
+        <GroupBox Header="結果" Grid.Row="4" Margin="0,0,0,10">
+            <DataGrid x:Name="ResultsGrid" Margin="6" AutoGenerateColumns="False"
+                      IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False"
+                      GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                      RowHeight="34">
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsTop}" Value="True">
+                                <Setter Property="Background" Value="#FFDCF5DC"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="選択肢" Binding="{Binding Label}" Width="60"/>
+                    <DataGridTextColumn Header="内容" Binding="{Binding Text}" Width="*"/>
+                    <DataGridTextColumn Header="確率" Binding="{Binding Probability, StringFormat={}{0:F1}%}" Width="80"/>
+                    <DataGridTemplateColumn Header="確信度" Width="180">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <ProgressBar Minimum="0" Maximum="100" Value="{Binding Probability, Mode=OneWay}"
+                                             Height="18" Margin="2"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </GroupBox>
+
+        <!-- Status bar -->
+        <StatusBar Grid.Row="5">
+            <StatusBarItem>
+                <TextBlock x:Name="StatusTextBlock" Text="モデル未読み込み"/>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>
