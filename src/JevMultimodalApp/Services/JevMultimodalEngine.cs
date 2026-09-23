@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.CompilerServices;
-using System.Text;
+using JevMultimodalApp.Models;
 using LLama;
+using LLama.Batched;
 using LLama.Common;
 using LLama.Native;
 
@@ -10,36 +10,35 @@ namespace JevMultimodalApp.Services;
 
 public sealed record MultimodalLoadResult(bool UsingGpu, long ElapsedMilliseconds);
 
+public sealed record MultimodalClassificationOutcome(IReadOnlyList<ChoiceResult> Results, long ElapsedMilliseconds);
+
 /// <summary>
-/// Loads a vision-capable GGUF model (e.g. Qwen3-VL-8B-Instruct) plus its mmproj file and answers
-/// questions about a single image, streaming the response token-by-token. GPU is used when
-/// available and falls back to CPU automatically - see the two-tier fallback in LoadModelAsync.
+/// Jev-style multimodal inference: given an image plus a question and three answer choices, run a
+/// single forward pass and read the probability of each choice letter (A/B/C) directly off the
+/// next-token logits, restricted (softmax) to just those three candidates - the same approach as
+/// JevInferenceEngine, extended with an image via LLamaSharp's Mtmd/BatchedExecutor API.
+///
+/// GPU is used when available and falls back to CPU automatically - see the two-tier fallback in
+/// LoadModelAsync.
 /// </summary>
 public sealed class JevMultimodalEngine : IDisposable
 {
+    private static readonly string[] Labels = ["A", "B", "C"];
+
     private static readonly object NativeConfigGate = new();
     private static bool _nativeConfigured;
 
     private readonly object _gate = new();
     private LLamaWeights? _weights;
-    private LLamaContext? _context;
     private MtmdWeights? _clip;
+    private BatchedExecutor? _executor;
 
     public bool IsModelLoaded
     {
-        get { lock (_gate) return _context is not null && _clip is not null; }
+        get { lock (_gate) return _executor is not null; }
     }
 
     public bool IsUsingGpu { get; private set; }
-
-    /// <summary>Milliseconds spent on prompt + image processing (time to first token) for the last InferStreamingAsync call.</summary>
-    public long LastPromptProcessingMs { get; private set; }
-
-    /// <summary>Milliseconds spent generating tokens after the first one, for the last InferStreamingAsync call.</summary>
-    public long LastGenerationMs { get; private set; }
-
-    /// <summary>Number of streamed chunks (approximately tokens) produced by the last InferStreamingAsync call.</summary>
-    public int LastTokenCount { get; private set; }
 
     public Task<MultimodalLoadResult> LoadModelAsync(string textModelPath, string mmprojPath, int threads = 8, uint contextSize = 4096)
     {
@@ -54,7 +53,7 @@ public sealed class JevMultimodalEngine : IDisposable
 
             var stopwatch = Stopwatch.StartNew();
 
-            var (newWeights, newContext, usingGpu) = await LoadTextModelWithFallback(textModelPath, threads, contextSize);
+            var (newWeights, modelParams, usingGpu) = await LoadTextWeightsWithFallback(textModelPath, threads, contextSize);
 
             var mtmdParams = MtmdContextParams.Default();
             mtmdParams.UseGpu = usingGpu;
@@ -66,7 +65,18 @@ public sealed class JevMultimodalEngine : IDisposable
             }
             catch
             {
-                newContext.Dispose();
+                newWeights.Dispose();
+                throw;
+            }
+
+            BatchedExecutor newExecutor;
+            try
+            {
+                newExecutor = new BatchedExecutor(newWeights, modelParams, newClip);
+            }
+            catch
+            {
+                newClip.Dispose();
                 newWeights.Dispose();
                 throw;
             }
@@ -75,12 +85,12 @@ public sealed class JevMultimodalEngine : IDisposable
 
             lock (_gate)
             {
+                _executor?.Dispose(); // also disposes its Context
                 _clip?.Dispose();
-                _context?.Dispose();
                 _weights?.Dispose();
                 _weights = newWeights;
-                _context = newContext;
                 _clip = newClip;
+                _executor = newExecutor;
                 IsUsingGpu = usingGpu;
             }
 
@@ -92,14 +102,6 @@ public sealed class JevMultimodalEngine : IDisposable
     /// Ensures the CUDA-capable native library is selected if a compatible GPU/driver is present,
     /// falling back to the CPU native library otherwise. Must run before any model is loaded, and
     /// only once per process (a selected native library cannot be swapped afterwards).
-    ///
-    /// Note: an earlier version of this method used NativeLibraryConfig.All.DryRun(...) to check
-    /// loadedLibrary.Metadata.UseCuda before attempting a GPU load. That check turned out to be
-    /// unreliable in practice - DryRun reported success (true) but returned a null library even on
-    /// a machine with a working CUDA setup, which made LoadTextModelWithFallback skip the GPU
-    /// attempt entirely and silently fall back to CPU every time. LoadTextModelWithFallback now
-    /// just attempts the GPU load directly (as JevMultimodalPlayground already did, successfully)
-    /// and catches failures instead.
     /// </summary>
     private static void EnsureNativeLibraryConfigured()
     {
@@ -114,11 +116,11 @@ public sealed class JevMultimodalEngine : IDisposable
     }
 
     /// <summary>
-    /// Tries to load the text model fully offloaded to GPU first. If that fails (e.g. the GPU is
-    /// present but doesn't have enough VRAM for this particular model), retries on CPU using the
-    /// same already-selected native library.
+    /// Tries to load the text model fully offloaded to GPU first. If that fails (e.g. no CUDA-capable
+    /// library was selected, or the GPU is present but doesn't have enough VRAM for this particular
+    /// model), retries on CPU using the same already-selected native library.
     /// </summary>
-    private static async Task<(LLamaWeights Weights, LLamaContext Context, bool UsingGpu)> LoadTextModelWithFallback(
+    private static async Task<(LLamaWeights Weights, ModelParams Params, bool UsingGpu)> LoadTextWeightsWithFallback(
         string textModelPath, int threads, uint contextSize)
     {
         try
@@ -137,13 +139,11 @@ public sealed class JevMultimodalEngine : IDisposable
             };
 
             var weights = await LLamaWeights.LoadFromFileAsync(gpuParams);
-            var context = weights.CreateContext(gpuParams);
-            return (weights, context, UsingGpu: true);
+            return (weights, gpuParams, UsingGpu: true);
         }
         catch
         {
-            // No CUDA-capable GPU/library, or the GPU is present but this model didn't fit
-            // (e.g. insufficient VRAM) - fall through to CPU.
+            // No CUDA-capable GPU/library, or the GPU is present but this model didn't fit - fall through to CPU.
         }
 
         var cpuParams = new ModelParams(textModelPath)
@@ -155,82 +155,152 @@ public sealed class JevMultimodalEngine : IDisposable
         };
 
         var cpuWeights = await LLamaWeights.LoadFromFileAsync(cpuParams);
-        var cpuContext = cpuWeights.CreateContext(cpuParams);
-        return (cpuWeights, cpuContext, UsingGpu: false);
+        return (cpuWeights, cpuParams, UsingGpu: false);
     }
 
-    public async IAsyncEnumerable<string> InferStreamingAsync(string imagePath, string question, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public Task<MultimodalClassificationOutcome> ClassifyAsync(string imagePath, string question, string choiceA, string choiceB, string choiceC)
     {
         if (!File.Exists(imagePath))
             throw new FileNotFoundException("画像ファイルが見つかりません。", imagePath);
 
+        return Task.Run(() => Classify(imagePath, question, choiceA, choiceB, choiceC));
+    }
+
+    private MultimodalClassificationOutcome Classify(string imagePath, string question, string choiceA, string choiceB, string choiceC)
+    {
         LLamaWeights weights;
-        LLamaContext context;
         MtmdWeights clip;
+        BatchedExecutor executor;
         lock (_gate)
         {
-            if (_weights is null || _context is null || _clip is null)
+            if (_weights is null || _clip is null || _executor is null)
                 throw new InvalidOperationException("モデルが読み込まれていません。先にGGUFモデルとmmprojを読み込んでください。");
             weights = _weights;
-            context = _context;
             clip = _clip;
+            executor = _executor;
         }
 
-        context.NativeHandle.MemoryClear(true);
-        clip.ClearMedia();
+        var stopwatch = Stopwatch.StartNew();
 
+        var texts = new[] { choiceA, choiceB, choiceC };
         var mediaMarker = NativeApi.MtmdDefaultMarker() ?? "<media>";
-        var executor = new InteractiveExecutor(context, clip);
-        var embed = clip.LoadMedia(imagePath);
-        executor.Embeds.Add(embed);
+        var prompt = BuildPrompt(weights, mediaMarker, question, choiceA, choiceB, choiceC);
 
-        var history = new ChatHistory();
-        history.AddMessage(AuthorRole.System, "あなたは画像を見て日本語で答えるアシスタントです。");
-        history.AddMessage(AuthorRole.User, $"{mediaMarker}\n{question}");
-        var template = new LLamaTemplate(weights.NativeHandle) { AddAssistant = true };
-        foreach (var message in history.Messages)
-            template.Add(message.AuthorRole.ToString().ToLowerInvariant(), message.Content);
-        var prompt = Encoding.UTF8.GetString(template.Apply());
+        // Determine the continuation token for each candidate letter via diff-tokenization (same
+        // approach as JevInferenceEngine). Safe to do with plain text tokenization even though the
+        // full multimodal prompt also contains the media marker: BPE tokenization is local, so
+        // retokenizing near "Answer: " doesn't depend on content far earlier in the string, and this
+        // avoids having to run the (embed-requiring) multimodal tokenizer just to resolve token ids.
+        var baseTokens = executor.Context.Tokenize(prompt, addBos: true, special: true);
+        if (baseTokens.Length == 0)
+            throw new InvalidOperationException("プロンプトのトークン化に失敗しました。");
 
-        var inferenceParams = new InferenceParams
+        var candidateTokens = new LLamaToken[Labels.Length];
+        for (var i = 0; i < Labels.Length; i++)
+            candidateTokens[i] = ResolveContinuationToken(executor.Context, prompt, baseTokens, Labels[i]);
+
+        using var embed = clip.LoadMedia(imagePath);
+        var conversation = executor.Create();
+        try
         {
-            SamplingPipeline = new LLama.Sampling.DefaultSamplingPipeline { Temperature = 0.1f },
-            AntiPrompts = new List<string> { "User:" },
-            MaxTokens = 512,
-        };
+            conversation.Prompt(prompt, new[] { embed }, addBos: true);
 
-        var swFirstToken = Stopwatch.StartNew();
-        var swGeneration = new Stopwatch();
-        long firstTokenMs = -1;
-        var tokenCount = 0;
+            var decodeResult = executor.Infer().GetAwaiter().GetResult();
+            if (decodeResult != DecodeResult.Ok)
+                throw new InvalidOperationException($"推論に失敗しました（デコード結果: {decodeResult}）。");
 
-        await foreach (var text in executor.InferAsync(prompt, inferenceParams, cancellationToken))
-        {
-            if (firstTokenMs < 0)
+            var logits = conversation.Sample();
+
+            var rawScores = new double[Labels.Length];
+            for (var i = 0; i < Labels.Length; i++)
+                rawScores[i] = logits[(int)candidateTokens[i]];
+
+            var probabilities = Softmax(rawScores);
+
+            stopwatch.Stop();
+
+            var topIndex = 0;
+            for (var i = 1; i < probabilities.Length; i++)
+                if (probabilities[i] > probabilities[topIndex])
+                    topIndex = i;
+
+            var results = new List<ChoiceResult>(Labels.Length);
+            for (var i = 0; i < Labels.Length; i++)
             {
-                firstTokenMs = swFirstToken.ElapsedMilliseconds;
-                swGeneration.Start();
+                results.Add(new ChoiceResult
+                {
+                    Label = Labels[i],
+                    Text = texts[i],
+                    Probability = probabilities[i] * 100.0,
+                    IsTop = i == topIndex,
+                });
             }
 
-            tokenCount++;
-            yield return text;
+            return new MultimodalClassificationOutcome(results, stopwatch.ElapsedMilliseconds);
         }
+        finally
+        {
+            conversation.Dispose();
+        }
+    }
 
-        swGeneration.Stop();
-        LastPromptProcessingMs = firstTokenMs < 0 ? swFirstToken.ElapsedMilliseconds : firstTokenMs;
-        LastGenerationMs = swGeneration.ElapsedMilliseconds;
-        LastTokenCount = tokenCount;
+    private static string BuildPrompt(LLamaWeights weights, string mediaMarker, string question, string choiceA, string choiceB, string choiceC)
+    {
+        var body =
+            $"{mediaMarker}\n" +
+            $"Context: {question}\n" +
+            "Question: 画像の内容を踏まえ、最も適切なものを以下の選択肢から1つ選んでください。\n" +
+            $"A: {choiceA}\n" +
+            $"B: {choiceB}\n" +
+            $"C: {choiceC}";
+
+        try
+        {
+            var template = new LLamaTemplate(weights.NativeHandle, strict: true);
+            template.Add("system", "あなたは画像と文脈から最も適切な1つを選ぶ分類器です。回答は選択肢のアルファベット（A、B、Cのいずれか1文字）のみを出力してください。");
+            template.Add("user", body);
+            template.AddAssistant = true;
+            var templated = System.Text.Encoding.UTF8.GetString(template.Apply());
+            return templated + "Answer: ";
+        }
+        catch
+        {
+            return body + "\nAnswer: ";
+        }
+    }
+
+    private static LLamaToken ResolveContinuationToken(LLamaContext context, string prompt, LLamaToken[] baseTokens, string letter)
+    {
+        var extendedTokens = context.Tokenize(prompt + letter, addBos: true, special: true);
+
+        var commonPrefixLength = 0;
+        var maxCommon = Math.Min(baseTokens.Length, extendedTokens.Length);
+        while (commonPrefixLength < maxCommon && baseTokens[commonPrefixLength] == extendedTokens[commonPrefixLength])
+            commonPrefixLength++;
+
+        if (commonPrefixLength >= extendedTokens.Length)
+            throw new InvalidOperationException($"選択肢 '{letter}' に対応するトークンを特定できませんでした。");
+
+        return extendedTokens[commonPrefixLength];
+    }
+
+    private static double[] Softmax(double[] scores)
+    {
+        var max = scores.Max();
+        var exps = scores.Select(s => Math.Exp(s - max)).ToArray();
+        var sum = exps.Sum();
+        return exps.Select(e => e / sum).ToArray();
     }
 
     public void Dispose()
     {
         lock (_gate)
         {
+            _executor?.Dispose();
             _clip?.Dispose();
-            _context?.Dispose();
             _weights?.Dispose();
+            _executor = null;
             _clip = null;
-            _context = null;
             _weights = null;
         }
     }

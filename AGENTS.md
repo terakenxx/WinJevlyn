@@ -123,8 +123,33 @@ mmprojは本体GGUFとは別ファイルとしてダウンロードが必要（�
 
 ## JevMultimodalApp（マルチモーダル版GUI、GPU優先・CPU自動フォールバック）
 
-`JevMultimodalPlayground`で検証したMtmd APIパターンを、`JevInferenceApp`と同じ操作感のGUIに仕上げたもの。
+当初は自由文の質問に対してストリーミングで文章生成する実装（`InteractiveExecutor`ベース）だったが、
+「Jevらしい動作」（本体`JevInferenceApp`と同じ、1回のフォワードパスで選択肢A/B/Cの確率を直接取得する
+方式）が求められ、`LLama.Batched.BatchedExecutor` + `Conversation` APIを使う実装に全面的に書き換えた。
 対象モデルはQwen3-VL-8B-Instruct（本体GGUF + mmprojの2ファイル構成）。
+
+### 画像対応のJev式ロジット抽出（`BatchedExecutor`使用）
+
+`JevInferenceEngine`（テキスト専用）の`LLamaBatch.AddRange(..., logitsLast: true)` +
+`context.NativeHandle.GetLogitsIth(...)`という直接操作は、画像embeddingを含むプロンプトには使えない
+（画像はmtmdの`SafeMtmdInputChunks`という別経路で処理されるため）。代わりに`LLama.Batched`名前空間の
+高レベルAPIを使う：
+
+1. `new BatchedExecutor(weights, modelParams, clipModel)` — 内部で`LLamaContext`を保持する
+   （`executor.Context`でアクセス可能）。`weights.CreateContext(...)`を自前で呼ぶ必要はない。
+2. 推論1回ごとに`executor.Create()`で新しい`Conversation`を作り、使い終わったら`Dispose()`する
+   （呼び出しごとにKVキャッシュのシーケンスIDが新規発行されるため、`JevInferenceEngine`のような
+   `MemoryClear(true)`は不要）。
+3. `conversation.Prompt(promptText, new[] { embed }, addBos: true)`でプロンプト（画像マーカー含む
+   テキスト）と画像embeddingをまとめて予約し、`await executor.Infer()`で1回だけデコードする。
+4. `conversation.Sample(0)`が生の logits（`Span<float>`）を返す — サンプリングは行わず、ここから
+   A/B/Cのトークンに対応するlogitだけを取り出してsoftmaxする（`JevInferenceEngine`と同じロジック）。
+5. A/B/Cの候補トークンIDの特定（差分トークナイズ方式）は、画像マーカーを含むフルプロンプトに対して
+   プレーンな`executor.Context.Tokenize(...)`を使えばよい。BPEトークナイズは局所的なので、
+   「Answer: 」の直後の境界は離れた場所にある画像マーカーの影響を受けない。
+
+実測（GPU、RTX 4060 Ti 1枚固定）: 実写真で1,734ms（初回・CUDAグラフのウォームアップ込み）、
+2回目以降は155ms程度まで短縮。いずれも正解の選択肢を99%以上の確信度で選択できることを確認済み。
 
 ### GPU/CPUフォールバックは2階層
 
@@ -204,8 +229,9 @@ GPU読み込みを試みるかどうかを決める実装にしていたが、**
 - [JevMultimodalPlayground](src/JevMultimodalPlayground): CUDA12バックエンド追加・タイミング計測追加済み。
   Qwen3-VL-8B-Instruct + mmprojで実際にGPU推論を実行し、`SplitMode=None`/`MainGpu=0`固定で
   画像処理384ms・生成50.6 tok/sを実測済み（詳細は本ファイルの該当節を参照）。
-- [JevMultimodalApp](src/JevMultimodalApp): Debug/Release両構成でビルド確認・起動クラッシュ確認済み。
-  Qwen3-VL-8B本体GGUF（4.68GB）・mmproj（1.08GB）とも取得済み・整合性確認済み。
-  `JevMultimodalEngine`のGPU読み込みパスにも1GPU固定設定を反映済み。GUIのボタン操作を伴うE2E確認は
-  ツール制約により未実施（起動クラッシュ確認とPlayground側での同一ロジック実証で代替）。
+- [JevMultimodalApp](src/JevMultimodalApp): `BatchedExecutor`ベースのJev式3択判定（画像＋文脈＋選択肢
+  A/B/C→1回のフォワードパスで確率算出）に全面書き換え済み。Debug/Release両構成でビルド確認・起動
+  クラッシュ確認済み。スクラッチパッドから`JevMultimodalEngine`を直接呼び出し、実写真・合成画像の
+  両方で正解選択肢を99%以上の確信度で判定できることを実データ・実GPUで確認済み。GUIのボタン操作を
+  伴うE2E確認はツール制約により未実施（起動クラッシュ確認とエンジン直接呼び出しでの実証で代替）。
 - Sarashina2.2-3B-instruct（Q4_K_S、ユーザーがLM Studioでダウンロード済み）での動作検証は未実施。

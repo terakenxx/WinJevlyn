@@ -95,11 +95,14 @@ dotnet publish src/JevInferenceApp/JevInferenceApp.csproj -c Release -r win-x64 
 
 # JevMultimodalApp（マルチモーダル版・画像入力対応）
 
-[`src/JevMultimodalApp`](src/JevMultimodalApp) は、画像＋質問文から回答を生成する GUI アプリです。
+[`src/JevMultimodalApp`](src/JevMultimodalApp) は、本体 [JevInferenceApp](#jev-inference-app) と同じ
+Jev式ロジック（1回のフォワードパスで選択肢A/B/Cの確率を直接取得、テキスト生成は行わない）を、
+**画像入力にも対応させた** GUI アプリです。文脈（State / Context）と画像に加えて選択肢A/B/Cを与えると、
+画像の内容を踏まえてどれが最も適切かを1回の推論で判定します。
 Qwen3-VL-8B-Instruct のような視覚言語モデル（GGUF 本体 + mmproj の2ファイル構成）を対象とし、
 **GPU（NVIDIA CUDA）があれば自動的に使用し、無ければ CPU にフォールバック**します。
 
-- 実装: C# / .NET 8 / WPF + LLamaSharp の Mtmd（マルチモーダル）API
+- 実装: C# / .NET 8 / WPF + LLamaSharp の `BatchedExecutor` + Mtmd（マルチモーダル）API
 - GPU/CPU 自動選択: `LLamaSharp.Backend.Cpu` と `LLamaSharp.Backend.Cuda12` を両方参照し、
   `NativeLibraryConfig.All.WithCuda(true).WithAutoFallback(true)` で実行時に自動選択します
   （詳細設計は [AGENTS.md](AGENTS.md) 参照）。CUDA 対応 GPU が無い環境でもそのまま CPU で動作します。
@@ -141,6 +144,8 @@ publish-multimodal.bat
    読み込みは始まりません）。
 2. 「モデル読み込み」を押すと読み込みが始まり、完了後に「バックエンド」欄に実際に使われているのが
    GPU (CUDA) か CPU かが表示されます。
-3. 「画像を選択...」で画像ファイルを選び、「質問」欄に聞きたいことを入力（デフォルトの例文入りです）。
-4. 「推論実行」を押すと、応答がストリーミングで表示され、完了後に画像処理時間・生成時間・生成速度
-   （tok/s）が `Latency` 欄に表示されます。
+3. 「画像を選択...」で画像ファイルを選び、「入力文章 (State / Context)」に文脈を入力。
+4. 「選択肢 A/B/C」にそれぞれのテキストを入力。
+5. 「推論（判定）」を押すと、1 回のフォワードパスで画像を踏まえた各選択肢の確率が算出され、
+   結果グリッドに表示されます。最も確率が高い行はハイライトされ、処理時間が `Latency: NN ms`
+   として表示されます。

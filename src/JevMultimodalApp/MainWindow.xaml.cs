@@ -1,7 +1,8 @@
+using System.Collections.ObjectModel;
 using System.IO;
-using System.Text;
 using System.Windows;
 using System.Windows.Media.Imaging;
+using JevMultimodalApp.Models;
 using JevMultimodalApp.Services;
 using Microsoft.Win32;
 
@@ -10,11 +11,13 @@ namespace JevMultimodalApp;
 public partial class MainWindow : Window
 {
     private readonly JevMultimodalEngine _engine = new();
+    private readonly ObservableCollection<ChoiceResult> _results = new();
     private string? _imagePath;
 
     public MainWindow()
     {
         InitializeComponent();
+        ResultsGrid.ItemsSource = _results;
         Closed += (_, _) => _engine.Dispose();
     }
 
@@ -118,36 +121,33 @@ public partial class MainWindow : Window
 
     private async void RunButton_Click(object sender, RoutedEventArgs e)
     {
-        var question = QuestionTextBox.Text;
+        var context = ContextTextBox.Text;
+        var choiceA = ChoiceATextBox.Text;
+        var choiceB = ChoiceBTextBox.Text;
+        var choiceC = ChoiceCTextBox.Text;
 
         if (string.IsNullOrEmpty(_imagePath))
         {
             MessageBox.Show(this, "画像を選択してください。", "確認", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
-        if (string.IsNullOrWhiteSpace(question))
+        if (string.IsNullOrWhiteSpace(choiceA) || string.IsNullOrWhiteSpace(choiceB) || string.IsNullOrWhiteSpace(choiceC))
         {
-            MessageBox.Show(this, "質問を入力してください。", "確認", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, "選択肢 A・B・C をすべて入力してください。", "確認", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         SetBusy(true, "推論中...");
-        ResponseTextBox.Clear();
 
         try
         {
-            var responseBuilder = new StringBuilder();
-            await foreach (var chunk in _engine.InferStreamingAsync(_imagePath, question))
-            {
-                responseBuilder.Append(chunk);
-                ResponseTextBox.Text = responseBuilder.ToString();
-                ResponseTextBox.ScrollToEnd();
-            }
+            var outcome = await _engine.ClassifyAsync(_imagePath, context, choiceA, choiceB, choiceC);
 
-            var tokPerSec = _engine.LastGenerationMs > 0
-                ? _engine.LastTokenCount / (_engine.LastGenerationMs / 1000.0)
-                : 0;
-            LatencyLabel.Content = $"Latency: 画像処理 {_engine.LastPromptProcessingMs} ms / 生成 {_engine.LastGenerationMs} ms ({tokPerSec:F1} tok/s)";
+            _results.Clear();
+            foreach (var result in outcome.Results)
+                _results.Add(result);
+
+            LatencyLabel.Content = $"Latency: {outcome.ElapsedMilliseconds} ms";
             StatusTextBlock.Text = "推論完了";
         }
         catch (Exception ex)
