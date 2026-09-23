@@ -151,6 +151,21 @@ GPUが実際に使われたか判定できない。対策として、`NativeLibr
 ランタイム（cuBLAS等）は同梱せず、対象マシンのNVIDIAドライバに依存する方式。単一exe発行時のサイズ増加は
 軽微な見込み（実測はまだ）。
 
+### 重要: マルチGPU環境では`SplitMode = GPUSplitMode.None` + `MainGpu = 0`が必須
+
+`GpuLayerCount=99`だけを指定すると、llama.cppはデフォルトで**複数GPUに自動的にモデルを分割**する
+（`GPUSplitMode.Layer`相当の既定動作）。このマシン（RTX 4060 Ti + RTX 5060 Ti の2枚構成）で実測した結果：
+
+| 構成 | 画像処理＋プロンプト処理 | テキスト生成速度 |
+|---|---|---|
+| 2GPU自動分割（既定） | 63,083 ms | 17.3 tok/s |
+| **1GPU固定**（`SplitMode=None`, `MainGpu=0`） | **384 ms**（約164倍高速） | **50.6 tok/s**（約3倍高速） |
+
+8Bクラスの比較的小さいモデルを複数GPUに分割すると、PCIe経由の同期オーバーヘッドで大幅に遅くなる。
+配布先の多くはGPU1枚構成と想定されるため、`JevMultimodalEngine.cs`のGPU読み込みパスでは明示的に
+`SplitMode = GPUSplitMode.None`, `MainGpu = 0`を指定している（マルチGPU環境でも1枚目のGPUだけを
+使う）。この設定をしないと、マルチGPU環境を持つユーザーほど体感速度が悪化するという逆説的な結果になる。
+
 ## 配布方法（2種類）
 
 用途に応じて2通りの配布方法を用意している。どちらも [README.md](README.md) に手順あり。
@@ -174,8 +189,10 @@ GPUが実際に使われたか判定できない。対策として、`NativeLibr
 - [JevInferenceApp](src/JevInferenceApp) 本体: 実装・ビルド・実推論検証済み。単一exe発行・ソース配布
   （VS向けNuGet自動復元）の両方を検証済み。
 - [JevMultimodalPlayground](src/JevMultimodalPlayground): CUDA12バックエンド追加・タイミング計測追加済み。
-  実モデルでのGPU動作検証は未実施（Gemma3-4B-it想定から Qwen3-VL-8B-Instruct 想定に切り替え済み）。
+  Qwen3-VL-8B-Instruct + mmprojで実際にGPU推論を実行し、`SplitMode=None`/`MainGpu=0`固定で
+  画像処理384ms・生成50.6 tok/sを実測済み（詳細は本ファイルの該当節を参照）。
 - [JevMultimodalApp](src/JevMultimodalApp): Debug/Release両構成でビルド確認・起動クラッシュ確認済み。
-  Qwen3-VL-8B本体GGUF（4.68GB）はダウンロード済み・整合性確認済み。mmproj（約1.08GB）は取得中。
-  実データでのGPU推論動作確認は未実施（次のステップ）。
+  Qwen3-VL-8B本体GGUF（4.68GB）・mmproj（1.08GB）とも取得済み・整合性確認済み。
+  `JevMultimodalEngine`のGPU読み込みパスにも1GPU固定設定を反映済み。GUIのボタン操作を伴うE2E確認は
+  ツール制約により未実施（起動クラッシュ確認とPlayground側での同一ロジック実証で代替）。
 - Sarashina2.2-3B-instruct（Q4_K_S、ユーザーがLM Studioでダウンロード済み）での動作検証は未実施。

@@ -5,3 +5,4 @@ obj/
 /publish/
 /publish-multimodal/
 *.zip
+/models/test-images/

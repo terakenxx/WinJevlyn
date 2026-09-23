@@ -54,6 +54,11 @@ var modelParams = new ModelParams(modelPath)
     GpuLayerCount = useCpu ? 0 : 99, // 99 = offload as many layers as fit; ignored/no-op on a CPU-only load
     Threads = 8,
     BatchThreads = 8,
+    // Restrict to a single GPU (device 0) instead of letting llama.cpp auto-split layers across
+    // both cards - splitting a model this small across 2 GPUs adds PCIe sync overhead that hurt
+    // vision-encoding latency badly in an earlier multi-GPU test run.
+    SplitMode = useCpu ? null : GPUSplitMode.None,
+    MainGpu = 0,
 };
 
 var swLoadModel = Stopwatch.StartNew();

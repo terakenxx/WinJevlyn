@@ -142,6 +142,11 @@ public sealed class JevMultimodalEngine : IDisposable
                     GpuLayerCount = 99, // offload as many layers as fit
                     Threads = threads,
                     BatchThreads = threads,
+                    // Restrict to a single GPU instead of letting llama.cpp auto-split layers across
+                    // multiple cards - on a 2-GPU machine this measured ~46x slower end-to-end (mostly
+                    // from PCIe sync overhead during vision encoding) than pinning to one GPU.
+                    SplitMode = GPUSplitMode.None,
+                    MainGpu = 0,
                 };
 
                 var weights = await LLamaWeights.LoadFromFileAsync(gpuParams);
