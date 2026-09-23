@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>JevMultimodalApp</RootNamespace>
+    <AssemblyName>JevMultimodalApp</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- LLamaSharp: high-level GGUF loading/tokenization/decoding + Mtmd (multimodal) API -->
+    <PackageReference Include="LLamaSharp" Version="0.27.0" />
+    <!-- Both backends are referenced; NativeLibraryConfig picks CUDA at runtime when a
+         compatible NVIDIA GPU/driver is present and falls back to CPU otherwise. -->
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
+    <PackageReference Include="LLamaSharp.Backend.Cuda12" Version="0.27.0" />
+  </ItemGroup>
+
+</Project>

@@ -3,4 +3,5 @@ obj/
 *.user
 *.gguf
 /publish/
+/publish-multimodal/
 *.zip
