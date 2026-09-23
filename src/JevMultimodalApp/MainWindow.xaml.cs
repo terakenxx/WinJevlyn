@@ -59,14 +59,24 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) != true)
             return;
 
-        _imagePath = dialog.FileName;
+        try
+        {
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.UriSource = new Uri(dialog.FileName, UriKind.Absolute);
+            bitmap.EndInit();
+            bitmap.Freeze();
 
-        var bitmap = new BitmapImage();
-        bitmap.BeginInit();
-        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.UriSource = new Uri(_imagePath);
-        bitmap.EndInit();
-        ImagePreview.Source = bitmap;
+            _imagePath = dialog.FileName;
+            ImagePreview.Source = bitmap;
+        }
+        catch (Exception ex)
+        {
+            _imagePath = null;
+            ImagePreview.Source = null;
+            MessageBox.Show(this, $"画像の読み込みに失敗しました。\n\n{ex.Message}", "エラー", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private async void LoadModelButton_Click(object sender, RoutedEventArgs e)
