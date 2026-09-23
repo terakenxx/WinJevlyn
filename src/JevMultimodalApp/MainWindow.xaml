@@ -23,13 +23,13 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <!-- Model selection -->
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
             <!-- Image + context -->
             <RowDefinition Height="Auto"/>
             <!-- Choices -->
             <RowDefinition Height="Auto"/>
             <!-- Run row -->
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <!-- Results -->
             <RowDefinition Height="Auto"/>
             <!-- Status bar -->
@@ -70,19 +70,24 @@
         <GroupBox Header="画像・入力文章 (State / Context)" Grid.Row="1" Margin="0,0,0,10">
             <Grid Margin="6">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="160"/>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="1*"/>
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                    <Border BorderBrush="#FFB0B0B0" BorderThickness="1" Width="150" Height="150" Background="#FFF2F2F2">
+                <Grid Grid.Column="0" Margin="0,0,10,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" BorderBrush="#FFB0B0B0" BorderThickness="1" Background="#FFF2F2F2">
                         <Image x:Name="ImagePreview" Stretch="Uniform"/>
                     </Border>
-                    <Button x:Name="BrowseImageButton" Content="画像を選択..." Click="BrowseImageButton_Click" Margin="0,6,0,0"/>
-                </StackPanel>
+                    <Button Grid.Row="1" x:Name="BrowseImageButton" Content="画像を選択..." Click="BrowseImageButton_Click" Margin="0,6,0,0"/>
+                </Grid>
 
-                <TextBox x:Name="ContextTextBox" Grid.Column="1" Height="90"
-                         AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+                <TextBox x:Name="ContextTextBox" Grid.Column="1"
+                         AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                         VerticalAlignment="Stretch"/>
             </Grid>
         </GroupBox>
 
