@@ -90,3 +90,54 @@ dotnet publish src/JevInferenceApp/JevInferenceApp.csproj -c Release -r win-x64 
 3. 「選択肢 A/B/C」にそれぞれのテキストを入力。
 4. 「推論（判定）」を押すと、1 回のフォワードパスで各選択肢の確率が算出され、結果グリッドに表示されます。
    最も確率が高い行はハイライトされ、処理時間が `Latency: NN ms` として表示されます。
+
+---
+
+# JevMultimodalApp（マルチモーダル版・画像入力対応）
+
+[`src/JevMultimodalApp`](src/JevMultimodalApp) は、画像＋質問文から回答を生成する GUI アプリです。
+Qwen3-VL-8B-Instruct のような視覚言語モデル（GGUF 本体 + mmproj の2ファイル構成）を対象とし、
+**GPU（NVIDIA CUDA）があれば自動的に使用し、無ければ CPU にフォールバック**します。
+
+- 実装: C# / .NET 8 / WPF + LLamaSharp の Mtmd（マルチモーダル）API
+- GPU/CPU 自動選択: `LLamaSharp.Backend.Cpu` と `LLamaSharp.Backend.Cuda12` を両方参照し、
+  `NativeLibraryConfig.All.WithCuda(true).WithAutoFallback(true)` で実行時に自動選択します
+  （詳細設計は [AGENTS.md](AGENTS.md) 参照）。CUDA 対応 GPU が無い環境でもそのまま CPU で動作します。
+
+## モデルの用意
+
+本体GGUFとは別に **mmproj（マルチモーダル projector）ファイルが必須**です。例:
+[`Qwen/Qwen3-VL-8B-Instruct-GGUF`](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF)
+
+- 本体: `Qwen3VL-8B-Instruct-Q4_K_M.gguf`（約 4.68 GB）
+- mmproj: `mmproj-Qwen3VL-8B-Instruct-F16.gguf`（約 1.08 GB）
+
+**推奨 VRAM**: 本体 + mmproj + KV キャッシュで概算 6〜7GB 程度必要になるため、8GB GPU ではやや厳しい
+可能性があります。12GB 以上を推奨します（GPU に乗り切らない場合は自動的に CPU にフォールバックします）。
+
+**既知の注意点**: llama.cpp 側に Qwen3-VL のビジョン embedding 精度に関する未解決の issue があります
+（[ggml-org/llama.cpp#29251](https://github.com/ggml-org/llama.cpp/issues/29251)、2026-09-21 時点で
+open）。HF 版オリジナルと比べて画像理解の精度がやや劣る可能性があります。
+
+## ビルド・実行（開発時）
+
+```bash
+dotnet run --project src/JevMultimodalApp/JevMultimodalApp.csproj
+```
+
+## 単一実行ファイルとして発行
+
+```bash
+publish-multimodal.bat
+```
+
+生成物は `publish-multimodal\JevMultimodalApp.exe` です。自己完結・単一ファイルで、CUDA 対応 GPU が
+あれば自動的に使用し、無い環境でも CPU で動作します（ビルドを分ける必要はありません）。
+
+## 画面の使い方
+
+1. 「本体GGUF」「mmproj」それぞれ「参照...」で選択（両方選ぶと自動的に読み込みが始まります）。
+2. 読み込み完了後、「バックエンド」欄に実際に使われているのが GPU (CUDA) か CPU かが表示されます。
+3. 「画像を選択...」で画像ファイルを選び、「質問」欄に聞きたいことを入力（デフォルトの例文入りです）。
+4. 「推論実行」を押すと、応答がストリーミングで表示され、完了後に画像処理時間・生成時間・生成速度
+   （tok/s）が `Latency` 欄に表示されます。

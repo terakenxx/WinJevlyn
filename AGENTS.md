@@ -21,6 +21,9 @@ src/
     MainWindow.xaml(.cs)             GUI
     Models/ChoiceResult.cs
   JevMultimodalPlayground/    マルチモーダル（画像入力）検証用の独立したコンソールアプリ
+  JevMultimodalApp/           マルチモーダル版GUI本体（配布対象、GPU優先・CPU自動フォールバック）
+    Services/JevMultimodalEngine.cs  コアロジック
+    MainWindow.xaml(.cs)             GUI
 models/                        GGUFモデルの置き場（.gitignoreで除外、リポジトリには含めない）
 ```
 
@@ -118,6 +121,36 @@ Gemma3-4B-itのような画像入力対応モデルを試すために作成し�
 mmprojは本体GGUFとは別ファイルとしてダウンロードが必要（例: `unsloth/gemma-3-4b-it-GGUF`の
 `mmproj-BF16.gguf`）。
 
+## JevMultimodalApp（マルチモーダル版GUI、GPU優先・CPU自動フォールバック）
+
+`JevMultimodalPlayground`で検証したMtmd APIパターンを、`JevInferenceApp`と同じ操作感のGUIに仕上げたもの。
+対象モデルはQwen3-VL-8B-Instruct（本体GGUF + mmprojの2ファイル構成）。
+
+### GPU/CPUフォールバックは2階層
+
+1. **ネイティブライブラリ選択（プロセスで1回だけ）**: `NativeLibraryConfig.All.WithCuda(true).WithAutoFallback(true)`。
+   一度選択したネイティブライブラリはプロセス内で変更できないため、モデルを読み込むたびに呼ばず、
+   `JevMultimodalEngine`内でstaticフラグにより一度だけ実行する。
+2. **モデル単位のフォールバック（読み込みごと）**: まず`GpuLayerCount=99`で読み込みを試み、例外
+   （VRAM不足でこの特定モデルが乗らない場合など）が出たら`GpuLayerCount=0`で同じネイティブライブラリの
+   まま再試行する。
+
+### 「実際にGPUが使われたか」の判定に関する落とし穴
+
+CPU専用のネイティブライブラリが選択された場合でも、`GpuLayerCount=99`を渡した読み込みは**例外を出さず
+黙って成功する**（n_gpu_layersが内部で無視されるだけ）。そのため「読み込みが成功したかどうか」だけでは
+GPUが実際に使われたか判定できない。対策として、`NativeLibraryConfig.All.DryRun(out var loadedLLama, out _)`
+を一度実行し、`loadedLLama?.Metadata?.UseCuda`（`INativeLibrary.Metadata`は`LLama.Abstractions`名前空間）
+で「そもそもCUDA対応ライブラリが選択されたか」を先に確認してから、GPU読み込みを試みるかどうかを決めている。
+（`NativeLibraryConfig.All.Description`のような直接プロパティは存在しない点に注意 — 一度実装を誤りかけた。）
+
+### CUDAバックエンドのダウンロードサイズについて（誤解の訂正）
+
+当初「CUDAランタイムを含むため本体より大幅にサイズが大きくなる」と想定していたが、誤りだった。
+`LLamaSharp.Backend.Cuda12`のネイティブDLL（`ggml-cuda.dll`等）自体は約8.6MB程度で、CUDA Toolkitの
+ランタイム（cuBLAS等）は同梱せず、対象マシンのNVIDIAドライバに依存する方式。単一exe発行時のサイズ増加は
+軽微な見込み（実測はまだ）。
+
 ## 配布方法（2種類）
 
 用途に応じて2通りの配布方法を用意している。どちらも [README.md](README.md) に手順あり。
@@ -132,11 +165,17 @@ mmprojは本体GGUFとは別ファイルとしてダウンロードが必要（�
    - 検証済み: `NUGET_PACKAGES`環境変数で完全に空のパッケージキャッシュを指定した状態
      （＝初めてこのマシンを使う人を模した状態）から`dotnet restore`→`dotnet build`が成功することを確認
      （nuget.orgから約187MBを新規ダウンロード）。
+3. **単一exe配布（マルチモーダル版）**（`publish-multimodal.bat`）: `JevMultimodalApp.exe`を
+   `publish-multimodal/`に生成する。`JevInferenceApp`用と同じ`publish.bat`を流用せず別スクリプトに
+   したのは、出力先フォルダを分けて2つの配布物を混同しないため。
 
 ## 現在の状態・次にやること
 
 - [JevInferenceApp](src/JevInferenceApp) 本体: 実装・ビルド・実推論検証済み。単一exe発行・ソース配布
   （VS向けNuGet自動復元）の両方を検証済み。
-- [JevMultimodalPlayground](src/JevMultimodalPlayground): ビルドのみ確認済み、実モデルでの動作検証は未実施。
-- Sarashina2.2-3B-instruct（Q4_K_S、ユーザーがLM Studioでダウンロード中）での動作検証は未実施。
-- Gemma3-4B-it + mmprojでのマルチモーダル動作検証は未実施。
+- [JevMultimodalPlayground](src/JevMultimodalPlayground): CUDA12バックエンド追加・タイミング計測追加済み。
+  実モデルでのGPU動作検証は未実施（Gemma3-4B-it想定から Qwen3-VL-8B-Instruct 想定に切り替え済み）。
+- [JevMultimodalApp](src/JevMultimodalApp): Debug/Release両構成でビルド確認・起動クラッシュ確認済み。
+  Qwen3-VL-8B本体GGUF（4.68GB）はダウンロード済み・整合性確認済み。mmproj（約1.08GB）は取得中。
+  実データでのGPU推論動作確認は未実施（次のステップ）。
+- Sarashina2.2-3B-instruct（Q4_K_S、ユーザーがLM Studioでダウンロード済み）での動作検証は未実施。
