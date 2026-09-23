@@ -135,14 +135,27 @@ mmprojは本体GGUFとは別ファイルとしてダウンロードが必要（�
    （VRAM不足でこの特定モデルが乗らない場合など）が出たら`GpuLayerCount=0`で同じネイティブライブラリの
    まま再試行する。
 
-### 「実際にGPUが使われたか」の判定に関する落とし穴
+### 「実際にGPUが使われたか」の判定に関する落とし穴（`NativeLibraryConfig.All.DryRun`は使わない）
 
-CPU専用のネイティブライブラリが選択された場合でも、`GpuLayerCount=99`を渡した読み込みは**例外を出さず
-黙って成功する**（n_gpu_layersが内部で無視されるだけ）。そのため「読み込みが成功したかどうか」だけでは
-GPUが実際に使われたか判定できない。対策として、`NativeLibraryConfig.All.DryRun(out var loadedLLama, out _)`
-を一度実行し、`loadedLLama?.Metadata?.UseCuda`（`INativeLibrary.Metadata`は`LLama.Abstractions`名前空間）
-で「そもそもCUDA対応ライブラリが選択されたか」を先に確認してから、GPU読み込みを試みるかどうかを決めている。
-（`NativeLibraryConfig.All.Description`のような直接プロパティは存在しない点に注意 — 一度実装を誤りかけた。）
+当初、`NativeLibraryConfig.All.DryRun(out var loadedLLama, out _)`を実行し、
+`loadedLLama?.Metadata?.UseCuda`で「そもそもCUDA対応ライブラリが選択されたか」を先に確認してから
+GPU読み込みを試みるかどうかを決める実装にしていたが、**これがバグの原因になった**。
+
+実際にこのマシン（GPU 2枚搭載、正常にCUDAが使える環境）でスクラッチパッドから直接検証したところ、
+`DryRun`は`true`（成功）を返すにもかかわらず、out引数の`loadedLLama`が`null`になり、
+`Metadata?.UseCuda`が常に`false`と誤判定された。結果として`JevMultimodalEngine`がGPU読み込みを
+一度も試みずCPUにフォールバックし続けるというバグを引き起こした（ユーザー報告: 「バックエンドがCPUに
+なります」）。
+
+**対策**: `DryRun`による事前チェックは廃止し、[JevMultimodalPlayground](src/JevMultimodalPlayground)が
+最初から採用していた「直接GPUパラメータで読み込みを試み、例外が出たらCPUにフォールバックする」という
+単純な方式に統一した。`GpuLayerCount=99`を渡した読み込みはCPU専用ネイティブライブラリでも例外を出さず
+黙って成功する（n_gpu_layersが内部で無視されるだけ）ため、「GPUが全く無い環境でもGPUと誤表示される」
+という逆方向の誤判定リスクは理論上残るが、実際にGPUがあるのにCPUと誤判定される（今回発生した方の）
+バグよりは実害が小さいと判断し、シンプルさを優先した。
+
+**教訓**: LLamaSharpの高レベルな診断API（`DryRun`等）を過信せず、実機・実データでの検証を必ず行うこと。
+このバグも「コードは正しそうに見えるが実際に動かすと違う」典型例だった。
 
 ### CUDAバックエンドのダウンロードサイズについて（誤解の訂正）
 

@@ -3,7 +3,6 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
 using LLama;
-using LLama.Abstractions;
 using LLama.Common;
 using LLama.Native;
 
@@ -20,7 +19,6 @@ public sealed class JevMultimodalEngine : IDisposable
 {
     private static readonly object NativeConfigGate = new();
     private static bool _nativeConfigured;
-    private static bool _cudaLibraryAvailable;
 
     private readonly object _gate = new();
     private LLamaWeights? _weights;
@@ -95,10 +93,13 @@ public sealed class JevMultimodalEngine : IDisposable
     /// falling back to the CPU native library otherwise. Must run before any model is loaded, and
     /// only once per process (a selected native library cannot be swapped afterwards).
     ///
-    /// A dry run resolves which library will actually be used (CUDA vs CPU) so that
-    /// LoadTextModelWithFallback knows whether attempting GPU layers is even meaningful - a CPU-only
-    /// native library silently ignores GpuLayerCount rather than throwing, so that alone can't be
-    /// used to detect whether GPU is really in play.
+    /// Note: an earlier version of this method used NativeLibraryConfig.All.DryRun(...) to check
+    /// loadedLibrary.Metadata.UseCuda before attempting a GPU load. That check turned out to be
+    /// unreliable in practice - DryRun reported success (true) but returned a null library even on
+    /// a machine with a working CUDA setup, which made LoadTextModelWithFallback skip the GPU
+    /// attempt entirely and silently fall back to CPU every time. LoadTextModelWithFallback now
+    /// just attempts the GPU load directly (as JevMultimodalPlayground already did, successfully)
+    /// and catches failures instead.
     /// </summary>
     private static void EnsureNativeLibraryConfigured()
     {
@@ -108,18 +109,6 @@ public sealed class JevMultimodalEngine : IDisposable
                 return;
 
             NativeLibraryConfig.All.WithCuda(true).WithAutoFallback(true);
-
-            INativeLibrary? loadedLLama = null;
-            try
-            {
-                NativeLibraryConfig.All.DryRun(out loadedLLama, out _);
-            }
-            catch
-            {
-                // Leave _cudaLibraryAvailable false; the text-model load will just use CPU params.
-            }
-
-            _cudaLibraryAvailable = loadedLLama?.Metadata?.UseCuda == true;
             _nativeConfigured = true;
         }
     }
@@ -132,31 +121,29 @@ public sealed class JevMultimodalEngine : IDisposable
     private static async Task<(LLamaWeights Weights, LLamaContext Context, bool UsingGpu)> LoadTextModelWithFallback(
         string textModelPath, int threads, uint contextSize)
     {
-        if (_cudaLibraryAvailable)
+        try
         {
-            try
+            var gpuParams = new ModelParams(textModelPath)
             {
-                var gpuParams = new ModelParams(textModelPath)
-                {
-                    ContextSize = contextSize,
-                    GpuLayerCount = 99, // offload as many layers as fit
-                    Threads = threads,
-                    BatchThreads = threads,
-                    // Restrict to a single GPU instead of letting llama.cpp auto-split layers across
-                    // multiple cards - on a 2-GPU machine this measured ~46x slower end-to-end (mostly
-                    // from PCIe sync overhead during vision encoding) than pinning to one GPU.
-                    SplitMode = GPUSplitMode.None,
-                    MainGpu = 0,
-                };
+                ContextSize = contextSize,
+                GpuLayerCount = 99, // offload as many layers as fit; harmless no-op if only a CPU-only native library was selected
+                Threads = threads,
+                BatchThreads = threads,
+                // Restrict to a single GPU instead of letting llama.cpp auto-split layers across
+                // multiple cards - on a 2-GPU machine this measured ~46x slower end-to-end (mostly
+                // from PCIe sync overhead during vision encoding) than pinning to one GPU.
+                SplitMode = GPUSplitMode.None,
+                MainGpu = 0,
+            };
 
-                var weights = await LLamaWeights.LoadFromFileAsync(gpuParams);
-                var context = weights.CreateContext(gpuParams);
-                return (weights, context, UsingGpu: true);
-            }
-            catch
-            {
-                // GPU present but this model didn't fit (e.g. insufficient VRAM) - fall through to CPU.
-            }
+            var weights = await LLamaWeights.LoadFromFileAsync(gpuParams);
+            var context = weights.CreateContext(gpuParams);
+            return (weights, context, UsingGpu: true);
+        }
+        catch
+        {
+            // No CUDA-capable GPU/library, or the GPU is present but this model didn't fit
+            // (e.g. insufficient VRAM) - fall through to CPU.
         }
 
         var cpuParams = new ModelParams(textModelPath)
