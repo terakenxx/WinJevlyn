@@ -49,12 +49,14 @@
                 </Grid.ColumnDefinitions>
 
                 <Label Grid.Row="0" Grid.Column="0" Content="本体GGUF:"/>
-                <TextBox x:Name="ModelPathTextBox" Grid.Row="0" Grid.Column="1" Margin="0,3,8,3"/>
+                <TextBox x:Name="ModelPathTextBox" Grid.Row="0" Grid.Column="1" Margin="0,3,8,3"
+                         Text="E:\claude_projects\jev_test\models\Qwen3-VL-8B-Instruct-Q4_K_M.gguf"/>
                 <Button x:Name="BrowseModelButton" Grid.Row="0" Grid.Column="2" Content="参照..." Click="BrowseModelButton_Click" Margin="0,3,8,3"/>
                 <Button x:Name="LoadModelButton" Grid.Row="0" Grid.Column="3" Content="モデル読み込み" Click="LoadModelButton_Click" Margin="0,3,0,3"/>
 
                 <Label Grid.Row="1" Grid.Column="0" Content="mmproj:"/>
-                <TextBox x:Name="MmprojPathTextBox" Grid.Row="1" Grid.Column="1" Margin="0,3,8,3"/>
+                <TextBox x:Name="MmprojPathTextBox" Grid.Row="1" Grid.Column="1" Margin="0,3,8,3"
+                         Text="E:\claude_projects\jev_test\models\mmproj-Qwen3-VL-8B-Instruct-F16.gguf"/>
                 <Button x:Name="BrowseMmprojButton" Grid.Row="1" Grid.Column="2" Content="参照..." Click="BrowseMmprojButton_Click" Margin="0,3,8,3"/>
 
                 <Label Grid.Row="2" Grid.Column="0" Content="バックエンド:"/>

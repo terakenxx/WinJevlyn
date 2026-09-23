@@ -18,7 +18,7 @@ public partial class MainWindow : Window
         Closed += (_, _) => _engine.Dispose();
     }
 
-    private async void BrowseModelButton_Click(object sender, RoutedEventArgs e)
+    private void BrowseModelButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
         {
@@ -30,10 +30,9 @@ public partial class MainWindow : Window
             return;
 
         ModelPathTextBox.Text = dialog.FileName;
-        await LoadModelIfBothPathsSetAsync();
     }
 
-    private async void BrowseMmprojButton_Click(object sender, RoutedEventArgs e)
+    private void BrowseMmprojButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog
         {
@@ -45,7 +44,6 @@ public partial class MainWindow : Window
             return;
 
         MmprojPathTextBox.Text = dialog.FileName;
-        await LoadModelIfBothPathsSetAsync();
     }
 
     private void BrowseImageButton_Click(object sender, RoutedEventArgs e)
@@ -91,15 +89,6 @@ public partial class MainWindow : Window
         }
 
         await LoadModelAsync(modelPath, mmprojPath);
-    }
-
-    private async Task LoadModelIfBothPathsSetAsync()
-    {
-        var modelPath = ModelPathTextBox.Text.Trim();
-        var mmprojPath = MmprojPathTextBox.Text.Trim();
-
-        if (!string.IsNullOrEmpty(modelPath) && !string.IsNullOrEmpty(mmprojPath))
-            await LoadModelAsync(modelPath, mmprojPath);
     }
 
     private async Task LoadModelAsync(string modelPath, string mmprojPath)
