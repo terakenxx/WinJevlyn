@@ -1,5 +1,7 @@
 # WinJevlyn
 
+![WinJevlyn screenshot](docs/screenshot.png)
+
 Windows 11 向けの軽量ローカル推論 GUI。テキストを逐次生成せず、フォワードパス直後の Logits から特定選択肢の
 確率を直接取得するという設計思想に基づき、GGUF 形式の軽量モデル（Qwen2.5-0.5B / 1.5B-Instruct 等）を
 CPU 単体で動かして、与えられた文脈と選択肢 A/B/C のうちどれが最も適切かを 1 回のフォワードパスで判定します。
