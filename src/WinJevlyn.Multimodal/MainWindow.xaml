@@ -1,7 +1,7 @@
-<Window x:Class="JevMultimodalApp.MainWindow"
+<Window x:Class="WinJevlyn.Multimodal.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Jev Multimodal - Qwen3-VL GGUF"
+        Title="WinJevlyn Multimodal - Qwen3-VL GGUF"
         Width="960" Height="960" MinWidth="700" MinHeight="760"
         WindowStartupLocation="CenterScreen">
 

@@ -3,8 +3,8 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <RootNamespace>JevInferenceApp</RootNamespace>
-    <AssemblyName>JevInferenceApp</AssemblyName>
+    <RootNamespace>WinJevlyn.Multimodal</RootNamespace>
+    <AssemblyName>WinJevlyn.Multimodal</AssemblyName>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
@@ -13,10 +13,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- LLamaSharp: high-level GGUF loading/tokenization/decoding API -->
+    <!-- LLamaSharp: high-level GGUF loading/tokenization/decoding + Mtmd (multimodal) API -->
     <PackageReference Include="LLamaSharp" Version="0.27.0" />
-    <!-- CPU-only native backend (AVX/AVX2/AVX512 builds auto-selected at runtime) -->
+    <!-- Both backends are referenced; NativeLibraryConfig picks CUDA at runtime when a
+         compatible NVIDIA GPU/driver is present and falls back to CPU otherwise. -->
     <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
+    <PackageReference Include="LLamaSharp.Backend.Cuda12" Version="0.27.0" />
   </ItemGroup>
 
 </Project>

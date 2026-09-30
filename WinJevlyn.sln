@@ -2,11 +2,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JevInferenceApp", "src\JevInferenceApp\JevInferenceApp.csproj", "{9E4C7B4A-9C9B-4E2C-8B1A-6E1E7B1F2A11}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinJevlyn", "src\WinJevlyn\WinJevlyn.csproj", "{9E4C7B4A-9C9B-4E2C-8B1A-6E1E7B1F2A11}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JevMultimodalPlayground", "src\JevMultimodalPlayground\JevMultimodalPlayground.csproj", "{3B7C1F2D-5A6E-4B9C-9F0D-2C8A7E4D6F31}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinJevlyn.MultimodalPlayground", "src\WinJevlyn.MultimodalPlayground\WinJevlyn.MultimodalPlayground.csproj", "{3B7C1F2D-5A6E-4B9C-9F0D-2C8A7E4D6F31}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JevMultimodalApp", "src\JevMultimodalApp\JevMultimodalApp.csproj", "{7A1E9C3D-4F2B-4A8E-8C6D-1B3F5E7A9D02}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinJevlyn.Multimodal", "src\WinJevlyn.Multimodal\WinJevlyn.Multimodal.csproj", "{7A1E9C3D-4F2B-4A8E-8C6D-1B3F5E7A9D02}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

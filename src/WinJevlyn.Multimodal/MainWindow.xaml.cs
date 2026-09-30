@@ -2,15 +2,15 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Media.Imaging;
-using JevMultimodalApp.Models;
-using JevMultimodalApp.Services;
+using WinJevlyn.Multimodal.Models;
+using WinJevlyn.Multimodal.Services;
 using Microsoft.Win32;
 
-namespace JevMultimodalApp;
+namespace WinJevlyn.Multimodal;
 
 public partial class MainWindow : Window
 {
-    private readonly JevMultimodalEngine _engine = new();
+    private readonly MultimodalEngine _engine = new();
     private readonly ObservableCollection<ChoiceResult> _results = new();
     private string? _imagePath;
 

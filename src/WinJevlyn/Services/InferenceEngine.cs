@@ -1,20 +1,20 @@
 using System.Diagnostics;
 using System.IO;
-using JevInferenceApp.Models;
+using WinJevlyn.Models;
 using LLama;
 using LLama.Common;
 using LLama.Native;
 
-namespace JevInferenceApp.Services;
+namespace WinJevlyn.Services;
 
 public sealed record InferenceOutcome(IReadOnlyList<ChoiceResult> Results, long ElapsedMilliseconds);
 
 /// <summary>
-/// Jev-style inference: instead of autoregressively generating text, run a single forward pass
-/// and read the probability of each candidate answer letter (A/B/C) directly off the next-token
-/// logits, restricted (softmax) to just those three candidates.
+/// Single-forward-pass inference: instead of autoregressively generating text, run a single
+/// forward pass and read the probability of each candidate answer letter (A/B/C) directly off the
+/// next-token logits, restricted (softmax) to just those three candidates.
 /// </summary>
-public sealed class JevInferenceEngine : IDisposable
+public sealed class InferenceEngine : IDisposable
 {
     private static readonly string[] Labels = ["A", "B", "C"];
 

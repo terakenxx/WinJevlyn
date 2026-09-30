@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace JevInferenceApp;
+namespace WinJevlyn;
 
 public partial class App : Application
 {

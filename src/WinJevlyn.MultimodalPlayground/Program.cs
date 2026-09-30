@@ -9,14 +9,14 @@ using LLama.Native;
 // (model load / mmproj load / prompt+image processing / generation) in milliseconds.
 //
 // Usage:
-//   JevMultimodalPlayground <textModel.gguf> <mmproj.gguf> <image.png> ["question text"] [--cpu|--gpu]
+//   WinJevlyn.MultimodalPlayground <textModel.gguf> <mmproj.gguf> <image.png> ["question text"] [--cpu|--gpu]
 //
 // --gpu (default): try CUDA, auto-fallback to CPU if no compatible GPU/driver is found.
 // --cpu: force CPU-only (no GPU layers), for an apples-to-apples baseline measurement.
 
 if (args.Length < 3)
 {
-    Console.WriteLine("Usage: JevMultimodalPlayground <textModel.gguf> <mmproj.gguf> <image.png> [\"question text\"] [--cpu|--gpu]");
+    Console.WriteLine("Usage: WinJevlyn.MultimodalPlayground <textModel.gguf> <mmproj.gguf> <image.png> [\"question text\"] [--cpu|--gpu]");
     return 1;
 }
 

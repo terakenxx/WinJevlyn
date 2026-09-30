@@ -1,27 +1,28 @@
 using System.Diagnostics;
 using System.IO;
-using JevMultimodalApp.Models;
+using WinJevlyn.Multimodal.Models;
 using LLama;
 using LLama.Batched;
 using LLama.Common;
 using LLama.Native;
 
-namespace JevMultimodalApp.Services;
+namespace WinJevlyn.Multimodal.Services;
 
 public sealed record MultimodalLoadResult(bool UsingGpu, long ElapsedMilliseconds);
 
 public sealed record MultimodalClassificationOutcome(IReadOnlyList<ChoiceResult> Results, long ElapsedMilliseconds);
 
 /// <summary>
-/// Jev-style multimodal inference: given an image plus a question and three answer choices, run a
-/// single forward pass and read the probability of each choice letter (A/B/C) directly off the
-/// next-token logits, restricted (softmax) to just those three candidates - the same approach as
-/// JevInferenceEngine, extended with an image via LLamaSharp's Mtmd/BatchedExecutor API.
+/// Multimodal single-forward-pass inference: given an image plus a question and three answer
+/// choices, run a single forward pass and read the probability of each choice letter (A/B/C)
+/// directly off the next-token logits, restricted (softmax) to just those three candidates - the
+/// same approach as InferenceEngine (the text-only main app), extended with an image via
+/// LLamaSharp's Mtmd/BatchedExecutor API.
 ///
 /// GPU is used when available and falls back to CPU automatically - see the two-tier fallback in
 /// LoadModelAsync.
 /// </summary>
-public sealed class JevMultimodalEngine : IDisposable
+public sealed class MultimodalEngine : IDisposable
 {
     private static readonly string[] Labels = ["A", "B", "C"];
 
@@ -187,10 +188,11 @@ public sealed class JevMultimodalEngine : IDisposable
         var prompt = BuildPrompt(weights, mediaMarker, question, choiceA, choiceB, choiceC);
 
         // Determine the continuation token for each candidate letter via diff-tokenization (same
-        // approach as JevInferenceEngine). Safe to do with plain text tokenization even though the
-        // full multimodal prompt also contains the media marker: BPE tokenization is local, so
-        // retokenizing near "Answer: " doesn't depend on content far earlier in the string, and this
-        // avoids having to run the (embed-requiring) multimodal tokenizer just to resolve token ids.
+        // approach as InferenceEngine, the text-only main app). Safe to do with plain text
+        // tokenization even though the full multimodal prompt also contains the media marker: BPE
+        // tokenization is local, so retokenizing near "Answer: " doesn't depend on content far
+        // earlier in the string, and this avoids having to run the (embed-requiring) multimodal
+        // tokenizer just to resolve token ids.
         var baseTokens = executor.Context.Tokenize(prompt, addBos: true, special: true);
         if (baseTokens.Length == 0)
             throw new InvalidOperationException("プロンプトのトークン化に失敗しました。");

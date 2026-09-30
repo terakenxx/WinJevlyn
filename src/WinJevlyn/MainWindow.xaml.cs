@@ -1,14 +1,14 @@
 using System.Collections.ObjectModel;
 using System.Windows;
-using JevInferenceApp.Models;
-using JevInferenceApp.Services;
+using WinJevlyn.Models;
+using WinJevlyn.Services;
 using Microsoft.Win32;
 
-namespace JevInferenceApp;
+namespace WinJevlyn;
 
 public partial class MainWindow : Window
 {
-    private readonly JevInferenceEngine _engine = new();
+    private readonly InferenceEngine _engine = new();
     private readonly ObservableCollection<ChoiceResult> _results = new();
 
     public MainWindow()

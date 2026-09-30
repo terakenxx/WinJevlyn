@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace JevMultimodalApp;
+namespace WinJevlyn.Multimodal;
 
 public partial class App : Application
 {

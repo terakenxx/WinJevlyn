@@ -1,7 +1,7 @@
-# Jev Inference App
+# WinJevlyn
 
-Windows 11 向けの軽量ローカル推論 GUI。特化型 AI「Jev」の思想（テキストを逐次生成せず、フォワードパス直後の
-Logits から特定選択肢の確率を直接取得する）を模倣し、GGUF 形式の軽量モデル（Qwen2.5-0.5B / 1.5B-Instruct 等）を
+Windows 11 向けの軽量ローカル推論 GUI。テキストを逐次生成せず、フォワードパス直後の Logits から特定選択肢の
+確率を直接取得するという設計思想に基づき、GGUF 形式の軽量モデル（Qwen2.5-0.5B / 1.5B-Instruct 等）を
 CPU 単体で動かして、与えられた文脈と選択肢 A/B/C のうちどれが最も適切かを 1 回のフォワードパスで判定します。
 
 - 実装: C# / .NET 8 / WPF + [LLamaSharp](https://github.com/SciSharp/LLamaSharp)（llama.cpp バインディング）
@@ -16,23 +16,23 @@ CPU 単体で動かして、与えられた文脈と選択肢 A/B/C のうちど
 3. 最後のトークン位置の next-token logits を取得し、"A" / "B" / "C" に対応するトークン ID の logit だけを
    抜き出して softmax（3 択の中だけで正規化）することで、各選択肢の確信度（%）を得る。
 4. これにより、通常の自己回帰生成（1 トークンずつ生成→デコード）を行わずに、1 回のフォワードパスで
-   3 択分類の確率分布を得られる（Jev の高速判定思想を模倣）。
+   3 択分類の確率分布を得られる。
 
-該当コード: [`Services/JevInferenceEngine.cs`](src/JevInferenceApp/Services/JevInferenceEngine.cs)
+該当コード: [`Services/InferenceEngine.cs`](src/WinJevlyn/Services/InferenceEngine.cs)
 
 ## 前提条件
 
 - Windows 11
-- **.NET 8 SDK**（このマシンには現在 .NET 5 系のみ入っているため、ビルドには別途インストールが必要です。
-  `winget install Microsoft.DotNet.SDK.8` または https://dotnet.microsoft.com/download/dotnet/8.0 から入手）
+- **.NET 8 SDK**（`winget install Microsoft.DotNet.SDK.8` または
+  https://dotnet.microsoft.com/download/dotnet/8.0 から入手）
 - GGUF モデルファイル（例: `qwen2.5-0.5b-instruct-q4_k_m.gguf`）を別途用意してください。本リポジトリには
   モデルファイルは含まれません。
 
 ## ビルド・実行（開発時）
 
 ```bash
-dotnet restore JevInferenceApp.sln
-dotnet run --project src/JevInferenceApp/JevInferenceApp.csproj
+dotnet restore WinJevlyn.sln
+dotnet run --project src/WinJevlyn/WinJevlyn.csproj
 ```
 
 `LLamaSharp.Backend.Cpu` パッケージが AVX/AVX2/AVX512 各バックエンドのネイティブ DLL を自動的に出力先へコピーする
@@ -48,7 +48,7 @@ DLL を手動で集めて同梱する必要はありません（モデルの `.g
    チェックを入れてください（WPF のビルドに必要）。.NET 8 SDK が無ければ Visual Studio Installer から
    追加できます。
 2. リポジトリ一式（`.git` を除く場合は `bin/` `obj/` `publish/` `models/` を除いたソースツリー）を展開し、
-   ルートの `JevInferenceApp.sln` をダブルクリックして開く。
+   ルートの `WinJevlyn.sln` をダブルクリックして開く。
 3. 「ビルド」→「ソリューションのビルド」（`Ctrl+Shift+B`）を実行すると、初回ビルド時に NuGet パッケージが
    自動復元されます（初回はネットワークからのダウンロードで数分かかります。今回の検証では約187MBでした）。
 4. `F5`（デバッグ実行）または `Ctrl+F5`（デバッグなし実行）でそのまま起動できます。
@@ -64,14 +64,14 @@ DLL を手動で集めて同梱する必要はありません（モデルの `.g
 publish.bat
 ```
 
-生成物はプロジェクトルート直下の `publish\JevInferenceApp.exe` です（自己完結・単一ファイル、.NET 8
+生成物はプロジェクトルート直下の `publish\WinJevlyn.exe` です（自己完結・単一ファイル、.NET 8
 未インストールの Windows 11 でもそのまま動作します）。このファイルと GGUF モデルファイルさえあれば、
 他の DLL を散乱させずに配布・実行できます。
 
 `.bat` を使わず直接コマンドで発行したい場合:
 
 ```bash
-dotnet publish src/JevInferenceApp/JevInferenceApp.csproj -c Release -r win-x64 \
+dotnet publish src/WinJevlyn/WinJevlyn.csproj -c Release -r win-x64 \
   --self-contained true \
   -p:PublishSingleFile=true \
   -p:IncludeNativeLibrariesForSelfExtract=true \
@@ -93,10 +93,10 @@ dotnet publish src/JevInferenceApp/JevInferenceApp.csproj -c Release -r win-x64 
 
 ---
 
-# JevMultimodalApp（マルチモーダル版・画像入力対応）
+# WinJevlyn.Multimodal（マルチモーダル版・画像入力対応）
 
-[`src/JevMultimodalApp`](src/JevMultimodalApp) は、本体 [JevInferenceApp](#jev-inference-app) と同じ
-Jev式ロジック（1回のフォワードパスで選択肢A/B/Cの確率を直接取得、テキスト生成は行わない）を、
+[`src/WinJevlyn.Multimodal`](src/WinJevlyn.Multimodal) は、本体 [WinJevlyn](#winjevlyn) と同じ
+単一フォワードパスのロジック（1回のフォワードパスで選択肢A/B/Cの確率を直接取得、テキスト生成は行わない）を、
 **画像入力にも対応させた** GUI アプリです。文脈（State / Context）と画像に加えて選択肢A/B/Cを与えると、
 画像の内容を踏まえてどれが最も適切かを1回の推論で判定します。
 Qwen3-VL-8B-Instruct のような視覚言語モデル（GGUF 本体 + mmproj の2ファイル構成）を対象とし、
@@ -125,7 +125,7 @@ open）。HF 版オリジナルと比べて画像理解の精度がやや劣る�
 ## ビルド・実行（開発時）
 
 ```bash
-dotnet run --project src/JevMultimodalApp/JevMultimodalApp.csproj
+dotnet run --project src/WinJevlyn.Multimodal/WinJevlyn.Multimodal.csproj
 ```
 
 ## 単一実行ファイルとして発行
@@ -134,7 +134,7 @@ dotnet run --project src/JevMultimodalApp/JevMultimodalApp.csproj
 publish-multimodal.bat
 ```
 
-生成物は `publish-multimodal\JevMultimodalApp.exe` です。自己完結・単一ファイルで、CUDA 対応 GPU が
+生成物は `publish-multimodal\WinJevlyn.Multimodal.exe` です。自己完結・単一ファイルで、CUDA 対応 GPU が
 あれば自動的に使用し、無い環境でも CPU で動作します（ビルドを分ける必要はありません）。
 
 ## 画面の使い方

@@ -2,17 +2,17 @@
 
   <!--
     Standalone experimental console app for trying multimodal (vision) models such as
-    Gemma3-4B-it via LLamaSharp's Mtmd API. Deliberately kept separate from JevInferenceApp:
-    the Mtmd pipeline (mmproj loading, media embedding, chunked decode) is a different code
-    path from the plain-text single-pass logit extraction used by the main app, so mixing
-    them would complicate the verified, working JevInferenceApp for no benefit here.
+    Qwen3-VL-8B-Instruct via LLamaSharp's Mtmd API. Deliberately kept separate from the main
+    WinJevlyn app: the Mtmd pipeline (mmproj loading, media embedding, chunked decode) is a
+    different code path from the plain-text single-pass logit extraction used by the main app,
+    so mixing them would complicate the verified, working main app for no benefit here.
   -->
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <RootNamespace>JevMultimodalPlayground</RootNamespace>
-    <AssemblyName>JevMultimodalPlayground</AssemblyName>
+    <RootNamespace>WinJevlyn.MultimodalPlayground</RootNamespace>
+    <AssemblyName>WinJevlyn.MultimodalPlayground</AssemblyName>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>

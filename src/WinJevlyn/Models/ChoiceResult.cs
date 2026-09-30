@@ -1,7 +1,7 @@
-namespace JevMultimodalApp.Models;
+namespace WinJevlyn.Models;
 
 /// <summary>
-/// Result of Jev-style logit extraction for a single answer choice (A/B/C), extended with an image.
+/// Result of single-forward-pass logit extraction for a single answer choice (A/B/C).
 /// </summary>
 public sealed class ChoiceResult
 {
