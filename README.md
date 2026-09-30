@@ -56,16 +56,6 @@ CPU 上で動かし、自己完結型の単一 `.exe` として発行できま�
 - GGUF モデルファイル（例: `qwen2.5-0.5b-instruct-q4_k_m.gguf`）を別途用意してください。本リポジトリには
   モデルファイルは含まれません。
 
-## ビルド・実行（開発時）
-
-```bash
-dotnet restore WinJevlyn.sln
-dotnet run --project src/WinJevlyn/WinJevlyn.csproj
-```
-
-`LLamaSharp.Backend.Cpu` パッケージが AVX/AVX2/AVX512 各バックエンドのネイティブ DLL を自動的に出力先へコピーする
-ため、`dotnet run` の時点では単一ファイル化しなくてもそのまま動作します。
-
 ## Visual Studio で開く（ソース一式を配布する場合）
 
 このリポジトリは標準的な SDK スタイルのプロジェクト（`PackageReference` 方式）なので、Visual Studio が
@@ -84,7 +74,7 @@ DLL を手動で集めて同梱する必要はありません（モデルの `.g
 リポジトリ直下の `NuGet.config` で参照先を `nuget.org` に固定しているため、相手先マシンの NuGet 設定に
 関わらず同じ場所から取得されます。
 
-## 単一実行ファイルとして発行
+## ビルド・実行
 
 プロジェクトルートの `publish.bat` を実行してください。
 
@@ -158,13 +148,7 @@ Qwen3-VL-8B-Instruct のような視覚言語モデル（GGUF 本体 + mmproj �
 （[ggml-org/llama.cpp#29251](https://github.com/ggml-org/llama.cpp/issues/29251)、2026-09-21 時点で
 open）。HF 版オリジナルと比べて画像理解の精度がやや劣る可能性があります。
 
-## ビルド・実行（開発時）
-
-```bash
-dotnet run --project src/WinJevlyn.Multimodal/WinJevlyn.Multimodal.csproj
-```
-
-## 単一実行ファイルとして発行
+## ビルド・実行
 
 ```bash
 publish-multimodal.bat
