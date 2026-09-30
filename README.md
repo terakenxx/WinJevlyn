@@ -2,9 +2,35 @@
 
 ![WinJevlyn screenshot](docs/screenshot.png)
 
-Windows 11 向けの軽量ローカル推論 GUI。テキストを逐次生成せず、フォワードパス直後の Logits から特定選択肢の
-確率を直接取得するという設計思想に基づき、GGUF 形式の軽量モデル（Qwen2.5-0.5B / 1.5B-Instruct 等）を
-CPU 単体で動かして、与えられた文脈と選択肢 A/B/C のうちどれが最も適切かを 1 回のフォワードパスで判定します。
+**English**
+
+WinJevlyn is a lightweight Windows 11 GUI for local LLM inference. Instead of generating text
+token-by-token, it runs a single forward pass and reads the next-token logits directly, returning a
+softmax probability over three given answer choices (A/B/C) — a fast, generation-free classification
+approach. It runs GGUF models (e.g. Qwen2.5-0.5B/1.5B-Instruct) on CPU via
+[LLamaSharp](https://github.com/SciSharp/LLamaSharp)/llama.cpp, and can be published as a single
+self-contained `.exe`.
+
+> ⚠️ This repository also includes an experimental **multimodal (image input) variant,
+> `WinJevlyn.Multimodal`, which is an alpha release and not yet feature-complete.** It extends the
+> same single-forward-pass design to accept an image alongside the text context and choices, with
+> automatic GPU (CUDA) / CPU fallback. See the "WinJevlyn.Multimodal" section further down this
+> page for details and known limitations.
+
+**日本語**
+
+WinJevlyn は、Windows 11 向けの軽量ローカル LLM 推論 GUI です。テキストを 1 トークンずつ生成する代わりに、
+1 回のフォワードパスで得られる next-token logits を直接読み取り、与えられた 3 つの選択肢（A/B/C）について
+softmax 確率を返す、生成を伴わない高速な分類方式を採用しています。GGUF 形式のモデル（例:
+Qwen2.5-0.5B/1.5B-Instruct）を [LLamaSharp](https://github.com/SciSharp/LLamaSharp)/llama.cpp 経由で
+CPU 上で動かし、自己完結型の単一 `.exe` として発行できます。
+
+> ⚠️ 本リポジトリには、画像入力に対応した**マルチモーダル版 `WinJevlyn.Multimodal` も同梱していますが、
+> こちらは α 版であり未完成です。** 同じ単一フォワードパス方式を、テキストの文脈・選択肢に加えて画像にも
+> 拡張したもので、GPU（CUDA）が利用可能であれば自動的に使用し、無ければ CPU にフォールバックします。
+> 詳細・既知の制限は後述の「WinJevlyn.Multimodal」セクションを参照してください。
+
+---
 
 - 実装: C# / .NET 8 / WPF + [LLamaSharp](https://github.com/SciSharp/LLamaSharp)（llama.cpp バインディング）
 - 推論: CPU 単体、AVX2 最適化バックエンド、8 スレッド並列
@@ -95,7 +121,15 @@ dotnet publish src/WinJevlyn/WinJevlyn.csproj -c Release -r win-x64 \
 
 ---
 
-# WinJevlyn.Multimodal（マルチモーダル版・画像入力対応）
+# WinJevlyn.Multimodal（マルチモーダル版・画像入力対応）🚧 Alpha / α版・未完成
+
+> **[English]** This is an **alpha release.** The UI and behavior may still change, and end-to-end
+> verification through actual GUI button clicks is not yet complete (the core logic itself has been
+> verified against real hardware and real data). Not recommended for production use.
+>
+> **[日本語]** **これは α 版です。** UI・挙動は今後変更される可能性があります。GUI のボタン操作を含む
+> エンドツーエンドの動作確認はまだ完了していません（コアロジック自体は実機・実データで動作確認済みです）。
+> 本番用途での利用は推奨しません。
 
 [`src/WinJevlyn.Multimodal`](src/WinJevlyn.Multimodal) は、本体 [WinJevlyn](#winjevlyn) と同じ
 単一フォワードパスのロジック（1回のフォワードパスで選択肢A/B/Cの確率を直接取得、テキスト生成は行わない）を、
