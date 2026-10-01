@@ -224,9 +224,8 @@ GPU読み込みを試みるかどうかを決める実装にしていたが、**
    - 検証済み: `NUGET_PACKAGES`環境変数で完全に空のパッケージキャッシュを指定した状態
      （＝初めてこのマシンを使う人を模した状態）から`dotnet restore`→`dotnet build`が成功することを確認
      （nuget.orgから約187MBを新規ダウンロード）。
-3. **単一exe配布（マルチモーダル版）**（`publish-multimodal.bat`）: `WinJevlyn.Multimodal.exe`を
-   `publish-multimodal/`に生成する。本体用の`publish.bat`を流用せず別スクリプトにしたのは、
-   出力先フォルダを分けて2つの配布物を混同しないため。
+
+マルチモーダル版は α版のため、配布用スクリプト（`publish-multimodal.bat`）は削除済み。
 
 ## リネーム作業のメモ（Jev → WinJevlyn）
 

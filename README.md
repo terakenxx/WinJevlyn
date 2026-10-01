@@ -153,12 +153,13 @@ open）。HF 版オリジナルと比べて画像理解の精度がやや劣る�
 
 ## ビルド・実行
 
+α版のため、単一exe配布用のスクリプトはまだありません。次のコマンドでビルド・実行してください。
+
 ```bash
-publish-multimodal.bat
+dotnet run --project src/WinJevlyn.Multimodal -c Release
 ```
 
-生成物は `publish-multimodal\WinJevlyn.Multimodal.exe` です。自己完結・単一ファイルで、CUDA 対応 GPU が
-あれば自動的に使用し、無い環境でも CPU で動作します（ビルドを分ける必要はありません）。
+CUDA 対応 GPU があれば自動的に使用し、無い環境でも CPU で動作します（ビルドを分ける必要はありません）。
 
 ## 画面の使い方
 
