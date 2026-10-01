@@ -55,6 +55,9 @@ CPU 上で動かし、自己完結型の単一 `.exe` として発行できま�
   https://dotnet.microsoft.com/download/dotnet/8.0 から入手）
 - GGUF モデルファイル（例: `qwen2.5-0.5b-instruct-q4_k_m.gguf`）を別途用意してください。本リポジトリには
   モデルファイルは含まれません。
+  - サンプル用モデルのダウンロード先（約 491 MB）:
+    https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/blob/main/qwen2.5-0.5b-instruct-q4_k_m.gguf
+  - モデルカード: https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF
 
 ## ビルド・実行
 
