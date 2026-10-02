@@ -34,7 +34,7 @@ CPU 上で動かし、自己完結型の単一 `.exe` として発行できま�
 
 - 実装: C# / .NET 8 / WPF + [LLamaSharp](https://github.com/SciSharp/LLamaSharp)（llama.cpp バインディング）
 - 推論: CPU 単体、AVX2 最適化バックエンド、8 スレッド並列
-- 配布: `dotnet publish` の Single-file 機能で `.exe` 1 本にまとめられます（モデルの `.gguf` は別ファイル）
+- 配布: `dotnet publish` の Single-file 機能で `.exe` にまとめられます（`runtimes` フォルダとモデルの `.gguf` は別ファイル）
 
 ## 動作原理（ロジック概要）
 
@@ -68,8 +68,11 @@ publish.bat
 ```
 
 生成物はプロジェクトルート直下の `publish\WinJevlyn.exe` です（自己完結・単一ファイル、.NET 8
-未インストールの Windows 11 でもそのまま動作します）。このファイルと GGUF モデルファイルさえあれば、
-他の DLL を散乱させずに配布・実行できます。
+未インストールの Windows 11 でもそのまま動作します）。あわせて、LLamaSharp のネイティブ DLL
+（llama.cpp）を収めた `publishuntimes` フォルダも自動でコピーされます。`WinJevlyn.exe` は単体では
+ネイティブ DLL を読み込めず（モデル読み込み時に `The type initializer for 'LLama.Native.NativeApi'
+threw an exception.` が出ます）、`runtimes` フォルダを exe と同じ場所に置く必要があります。
+配布・実行には `WinJevlyn.exe`・`runtimes` フォルダ・GGUF モデルファイルの 3 点が必要です。
 
 `.bat` を使わず直接コマンドで発行したい場合:
 
@@ -81,6 +84,9 @@ dotnet publish src/WinJevlyn/WinJevlyn.csproj -c Release -r win-x64 \
   -p:EnableCompressionInSingleFile=true \
   -p:DebugType=None \
   -o publish
+
+xcopy /e /i /y src\WinJevlynin\Release
+et8.0-windows\win-x64untimes publishuntimes
 ```
 
 **配布時の注意**: 署名なし exe のため、相手先の初回起動時に Windows SmartScreen の警告（発行元不明）が
